@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clases por Mes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        header {
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-title {
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .nav-btn {
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+        }
+        
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 16px;
+            padding: 40px;
+        }
+        
+        .mes-grupo {
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+            padding-left: 20px;
+        }
+        
+        .mes-titulo {
+            color: #667eea;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .clase-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 4px solid #764ba2;
+        }
+        
+        .clase-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .clase-grado {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .clase-fecha {
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .clase-detalles {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .detalle-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detalle-label {
+            color: #999;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .detalle-valor {
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .sin-clases {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 16px;
+        }
+        
+        .mensaje {
+            text-align: center;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        .mensaje.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-title">📅 Clases por Mes</div>
+        <nav class="nav-buttons">
+            <a href="/" class="nav-btn">← Menú Principal</a>
+        </nav>
+    </header>
+    
+    <div class="container">
+        <h1>📊 Clases del Mes - Correspondencia de Pago</h1>
+        <p style="text-align: center; color: #666; font-size: 14px; margin-bottom: 30px;">Visualiza las clases de cada mes que corresponde pago</p>
+        
+        <div id="mensaje"></div>
+        <div id="contenido" class="loading">Cargando clases...</div>
+    </div>
+    
+    <script>
+        async function cargarClasesPorMes() {
+            try {
+                const response = await fetch('/clases/por-mes');
+                const data = await response.json();
+                
+                const contenido = document.getElementById('contenido');
+                const mensaje = document.getElementById('mensaje');
+                
+                if (!data.meses || Object.keys(data.meses).length === 0) {
+                    contenido.innerHTML = '<div class="sin-clases">✗ No hay clases registradas</div>';
+                    return;
+                }
+                
+                let html = '';
+                
+                Object.entries(data.meses).forEach(([mes, clases]) => {
+                    html += `
+                        <div class="mes-grupo">
+                            <div class="mes-titulo">📆 ${mes}</div>
+                    `;
+                    
+                    clases.forEach(clase => {
+                        const fecha = new Date(clase.fecha + 'T00:00:00');
+                        const fechaFormato = fecha.toLocaleDateString('es-ES', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        });
+                        
+                        html += `
+                            <div class="clase-item">
+                                <div class="clase-header">
+                                    <div class="clase-grado">${clase.grado}° ${clase.letra}</div>
+                                    <div class="clase-fecha">${fechaFormato}</div>
+                                </div>
+                                <div class="clase-detalles">
+                                    <div class="detalle-item">
+                                        <div class="detalle-label">Escuela</div>
+                                        <div class="detalle-valor">${clase.escuela}</div>
+                                    </div>
+                                    <div class="detalle-item">
+                                        <div class="detalle-label">Departamento</div>
+                                        <div class="detalle-valor">${clase.depto}</div>
+                                    </div>
+                                    <div class="detalle-item">
+                                        <div class="detalle-label">Maestra</div>
+                                        <div class="detalle-valor">${clase.nombreMaestra || 'No asignada'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                });
+                
+                contenido.innerHTML = html;
+                contenido.classList.remove('loading');
+                
+            } catch (error) {
+                const contenido = document.getElementById('contenido');
+                const mensaje = document.getElementById('mensaje');
+                
+                mensaje.className = 'mensaje error';
+                mensaje.textContent = `❌ Error: ${error.message}`;
+                contenido.innerHTML = '';
+            }
+        }
+        
+        // Cargar clases al abrir la página
+        document.addEventListener('DOMContentLoaded', cargarClasesPorMes);
+    </script>
+</body>
+</html>

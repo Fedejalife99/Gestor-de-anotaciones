@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agregar Anotación</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        header {
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header-title { color: white; font-size: 24px; font-weight: 600; }
+
+        .nav-buttons { display: flex; gap: 10px; }
+
+        .nav-btn {
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+
+        /* ── Layout principal ── */
+        .page {
+            max-width: 860px;
+            margin: 40px auto;
+            padding: 0 20px 60px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .page-title {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: white;
+            margin-bottom: 8px;
+        }
+
+        .page-title h1 { font-size: 30px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .page-title p  { color: rgba(255,255,255,0.75); font-size: 14px; margin-top: 6px; }
+
+        /* ── Panel izquierdo: selector de clase ── */
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+
+        .panel h2 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f0f8;
+        }
+
+        /* ── Buscador de clases ── */
+        .search-box {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+            font-size: 15px;
+        }
+
+        /* ── Lista de clases ── */
+        .clases-lista {
+            max-height: 320px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        .clases-lista::-webkit-scrollbar { width: 5px; }
+        .clases-lista::-webkit-scrollbar-track { background: #f1f1f1; }
+        .clases-lista::-webkit-scrollbar-thumb { background: #c5cae9; border-radius: 4px; }
+
+        .clase-opcion {
+            padding: 12px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f8;
+            transition: background 0.15s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .clase-opcion:last-child { border-bottom: none; }
+
+        .clase-opcion:hover { background: #f7f8ff; }
+
+        .clase-opcion.selected {
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-left: 3px solid #667eea;
+        }
+
+        .clase-opcion-info { display: flex; flex-direction: column; gap: 2px; }
+
+        .clase-opcion-grado { font-weight: 700; font-size: 14px; color: #333; }
+
+        .clase-opcion-meta { font-size: 11px; color: #888; }
+
+        .clase-tiene-anotacion {
+            font-size: 10px;
+            background: #fff3cd;
+            color: #856404;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .lista-vacia {
+            padding: 30px;
+            text-align: center;
+            color: #aaa;
+            font-size: 13px;
+        }
+
+        /* ── Panel derecho: formulario ── */
+        .form-group { margin-bottom: 18px; }
+
+        label {
+            display: block;
+            margin-bottom: 7px;
+            color: #555;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 11px 13px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus { outline: none; border-color: #667eea; }
+
+        /* ── Toggle switches ── */
+        .toggle-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .toggle-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f7f8ff;
+            padding: 12px 16px;
+            border-radius: 8px;
+        }
+
+        .toggle-label { font-size: 13px; font-weight: 600; color: #444; }
+        .toggle-sub   { font-size: 11px; color: #999; margin-top: 2px; }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #ccc;
+            border-radius: 24px;
+            transition: background 0.3s;
+        }
+
+        .slider::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+
+        .switch input:checked + .slider { background: #667eea; }
+        .switch input:checked + .slider::before { transform: translateX(20px); }
+
+        /* ── Clase seleccionada preview ── */
+        .clase-preview {
+            background: linear-gradient(135deg, #667eea10, #764ba210);
+            border: 1.5px solid #667eea30;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .clase-preview.visible { display: block; }
+
+        .preview-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            margin-bottom: 6px;
+        }
+
+        .preview-grado { font-size: 18px; font-weight: 700; color: #333; }
+        .preview-meta  { font-size: 12px; color: #777; margin-top: 3px; }
+
+        /* ── Botón submit ── */
+        .btn-submit {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .btn-submit:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Mensaje ── */
+        .message {
+            margin-top: 14px;
+            padding: 13px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; display: block; }
+        .message.error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; display: block; }
+
+        .spinner-inline {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Sin clase seleccionada ── */
+        .placeholder-form {
+            text-align: center;
+            padding: 50px 20px;
+            color: #bbb;
+        }
+
+        .placeholder-form .icon { font-size: 40px; margin-bottom: 12px; }
+        .placeholder-form p { font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-title">📚 Gestión de Anotaciones</div>
+    <nav class="nav-buttons">
+        <a href="/static/clases.html" class="nav-btn">← Ver Clases</a>
+        <a href="/static/index.html" class="nav-btn">➕ Nueva Clase</a>
+    </nav>
+</header>
+
+<div class="page">
+    <div class="page-title">
+        <h1>📝 Agregar Anotación</h1>
+        <p>Seleccioná una clase de la lista y completá la anotación</p>
+    </div>
+
+    <!-- Panel izquierdo: selección de clase -->
+    <div class="panel">
+        <h2>🏫 Seleccionar Clase</h2>
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="buscarClase" placeholder="Buscar por escuela, grado...">
+        </div>
+        <div class="clases-lista" id="clasesLista">
+            <div class="lista-vacia">Cargando clases...</div>
+        </div>
+    </div>
+
+    <!-- Panel derecho: formulario -->
+    <div class="panel" id="panelForm">
+        <div class="placeholder-form" id="placeholderForm">
+            <div class="icon">👈</div>
+            <p>Seleccioná una clase para agregar su anotación</p>
+        </div>
+
+        <div id="formContenido" style="display:none">
+            <h2>✏️ Datos de la Anotación</h2>
+
+            <!-- Preview clase seleccionada -->
+            <div class="clase-preview visible" id="clasePreview">
+                <div class="preview-label">Clase seleccionada</div>
+                <div class="preview-grado" id="previewGrado">—</div>
+                <div class="preview-meta" id="previewMeta">—</div>
+            </div>
+
+            <!-- Toggles -->
+            <div class="toggle-group">
+                <div class="toggle-item">
+                    <div>
+                        <div class="toggle-label">¿Clase dictada?</div>
+                        <div class="toggle-sub">Indicá si la clase se realizó</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="dictada">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-item">
+                    <div>
+                        <div class="toggle-label">¿Corresponde pago?</div>
+                        <div class="toggle-sub">Si esta clase genera cobro</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="correspondePago">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Registro de clase -->
+            <div class="form-group">
+                <label for="registroDeClase">Registro de clase *</label>
+                <textarea id="registroDeClase" placeholder="Describí lo que se trabajó en la clase..."></textarea>
+            </div>
+
+            <!-- Observaciones -->
+            <div class="form-group">
+                <label for="observaciones">Observaciones <span style="color:#aaa; font-weight:400">(opcional)</span></label>
+                <textarea id="observaciones" placeholder="Anotaciones adicionales, comportamiento, asistencia..."></textarea>
+            </div>
+
+            <button class="btn-submit" id="btnGuardar" onclick="guardarAnotacion()">
+                Guardar Anotación
+            </button>
+
+            <div class="message" id="message"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let todasLasClases = [];
+    let claseSeleccionadaId = null;
+
+    function gradoStr(grado, letra) {
+        const s = { 1:'ro', 2:'do', 3:'ro', 4:'to', 5:'to', 6:'to' };
+        return grado ? `${grado}${s[grado] || '°'} ${letra || ''}`.trim() : '—';
+    }
+
+    // ── Cargar clases ──
+    async function cargarClases() {
+        try {
+            const res = await fetch('/clases');
+            const data = await res.json();
+            todasLasClases = Array.isArray(data.clases) ? data.clases : [];
+            renderLista(todasLasClases);
+        } catch {
+            document.getElementById('clasesLista').innerHTML =
+                '<div class="lista-vacia">Error al cargar clases 🔌</div>';
+        }
+    }
+
+    function renderLista(clases) {
+        const lista = document.getElementById('clasesLista');
+        if (!clases.length) {
+            lista.innerHTML = '<div class="lista-vacia">No hay clases registradas</div>';
+            return;
+        }
+        lista.innerHTML = clases.map(c => `
+            <div class="clase-opcion ${c.id === claseSeleccionadaId ? 'selected' : ''}"
+                 onclick="seleccionarClase(${c.id})" data-id="${c.id}">
+                <div class="clase-opcion-info">
+                    <span class="clase-opcion-grado">${gradoStr(c.grado, c.letra)}</span>
+                    <span class="clase-opcion-meta">🏫 ${c.escuela || '—'} · ${c.fecha || '—'}</span>
+                </div>
+                ${c.anotacion ? '<span class="clase-tiene-anotacion">⚠ Ya tiene</span>' : ''}
+            </div>
+        `).join('');
+    }
+
+    // ── Filtro de búsqueda ──
+    document.getElementById('buscarClase').addEventListener('input', function () {
+        const q = this.value.toLowerCase();
+        const filtradas = todasLasClases.filter(c =>
+            [c.escuela, c.nombreMaestra, c.depto, gradoStr(c.grado, c.letra)]
+                .some(v => v && v.toLowerCase().includes(q))
+        );
+        renderLista(filtradas);
+    });
+
+    // ── Seleccionar clase ──
+    function seleccionarClase(id) {
+        claseSeleccionadaId = id;
+        const clase = todasLasClases.find(c => c.id === id);
+        if (!clase) return;
+
+        // Re-render con selección marcada
+        renderLista(todasLasClases.filter(c => {
+            const q = document.getElementById('buscarClase').value.toLowerCase();
+            return !q || [c.escuela, c.nombreMaestra, c.depto, gradoStr(c.grado, c.letra)]
+                .some(v => v && v.toLowerCase().includes(q));
+        }));
+
+        // Mostrar formulario
+        document.getElementById('placeholderForm').style.display = 'none';
+        document.getElementById('formContenido').style.display  = 'block';
+
+        // Preview
+        document.getElementById('previewGrado').textContent = gradoStr(clase.grado, clase.letra);
+        document.getElementById('previewMeta').textContent =
+            `🏫 ${clase.escuela || '—'}  ·  📍 ${clase.depto || '—'}  ·  📅 ${clase.fecha || '—'}`;
+
+        // Si ya tiene anotación, pre-rellenar
+        if (clase.anotacion) {
+            document.getElementById('dictada').checked          = clase.anotacion.dictada;
+            document.getElementById('correspondePago').checked  = clase.anotacion.correspondePago;
+            document.getElementById('registroDeClase').value    = clase.anotacion.registroDeClase || '';
+            document.getElementById('observaciones').value      = clase.anotacion.observaciones   || '';
+        } else {
+            document.getElementById('dictada').checked          = false;
+            document.getElementById('correspondePago').checked  = false;
+            document.getElementById('registroDeClase').value    = '';
+            document.getElementById('observaciones').value      = '';
+        }
+
+        // Limpiar mensajes previos
+        const msg = document.getElementById('message');
+        msg.className = 'message';
+        msg.textContent = '';
+    }
+
+    // ── Guardar anotación ──
+    async function guardarAnotacion() {
+        if (!claseSeleccionadaId) return;
+
+        const registro = document.getElementById('registroDeClase').value.trim();
+        if (!registro) {
+            mostrarMsg('El campo "Registro de clase" es obligatorio.', 'error');
+            return;
+        }
+
+        const payload = {
+            dictada:        document.getElementById('dictada').checked,
+            correspondePago: document.getElementById('correspondePago').checked,
+            registroDeClase: registro,
+            observaciones:  document.getElementById('observaciones').value.trim() || null,
+        };
+
+        const btn = document.getElementById('btnGuardar');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-inline"></span>Guardando...';
+
+        try {
+            // POST si no tiene, PUT si ya tiene
+            const claseActual = todasLasClases.find(c => c.id === claseSeleccionadaId);
+            const method = claseActual?.anotacion ? 'PUT' : 'POST';
+
+            const res = await fetch(`/clases/${claseSeleccionadaId}/anotacion`, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                mostrarMsg(`✅ ${data.mensaje}`, 'success');
+                await cargarClases();     // refrescar lista para marcar badge
+                seleccionarClase(claseSeleccionadaId);
+            } else {
+                mostrarMsg(`❌ ${data.detail || 'Error al guardar'}`, 'error');
+            }
+        } catch (err) {
+            mostrarMsg(`❌ Error de conexión: ${err.message}`, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Guardar Anotación';
+        }
+    }
+
+    function mostrarMsg(texto, tipo) {
+        const msg = document.getElementById('message');
+        msg.className = `message ${tipo}`;
+        msg.textContent = texto;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await cargarClases();
+        // Auto-seleccionar si viene con ?claseId=X
+        const params = new URLSearchParams(window.location.search);
+        const idParam = parseInt(params.get('claseId'));
+        if (idParam && todasLasClases.find(c => c.id === idParam)) {
+            seleccionarClase(idParam);
+        }
+    });
+</script>
+</body>
+</html>
