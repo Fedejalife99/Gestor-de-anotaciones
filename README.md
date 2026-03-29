@@ -173,8 +173,5 @@ AnotacionDB
 
 ## Próximas mejoras
 
-- [ ] Autenticación de usuarios
-- [ ] Filtros avanzados por departamento, escuela y rango de fechas
 - [ ] Exportación a CSV / PDF
-- [ ] Soporte multi-maestra con roles
-- [ ] Tests automatizados (pytest)
+
