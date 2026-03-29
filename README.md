@@ -174,13 +174,3 @@ Las contribuciones son bienvenidas. Para cambios importantes:
 ## Licencia
 
 Este proyecto está bajo la licencia MIT.
-
-## Contacto
-
-**Autor**: Fede  
-**Email**: fedejalife99@gmail.com  
-**GitHub**: [@Fedejalife99](https://github.com/Fedejalife99)
-
----
-
-**Última actualización**: Marzo 2026
