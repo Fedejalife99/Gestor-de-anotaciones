@@ -1,26 +1,59 @@
+# ── Python ──────────────────────────────────────────────────────────────────
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
+*.pyc
 .Python
+
+# ── Entornos virtuales ───────────────────────────────────────────────────────
 env/
 venv/
-.venv
-pip-log.txt
-pip-delete-this-directory.txt
+.venv/
+ENV/
+
+# ── Base de datos local ──────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Variables de entorno ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Logs ────────────────────────────────────────────────────────────────────
+*.log
+/tmp/
+
+# ── Build / distribución ─────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.egg
+
+# ── Testing / cobertura ──────────────────────────────────────────────────────
 .tox/
 .coverage
 .coverage.*
 .cache
-nosetests.xml
 coverage.xml
 *.cover
-*.egg-info/
-dist/
-build/
+nosetests.xml
+htmlcov/
+
+# ── IDEs ────────────────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+
+# ── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# ── pip ──────────────────────────────────────────────────────────────────────
+pip-log.txt
+pip-delete-this-directory.txt

@@ -1,18 +1,28 @@
-from src.Clase import Clase
-from src.Escuelas import Escuelas
-from src.Grupos import Grupos
-from src.Anotacion import Anotacion
 from src.modelos import ClaseData, EscuelaData, AnotacionData
-from fastapi import FastAPI, HTTPException
+from src.gestorBD import (
+    crear_tablas, SessionLocal, ClaseDB, EscuelaDB, AnotacionDB, GrupoDB
+)
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from collections import defaultdict
 import uvicorn
 
 app = FastAPI()
 
-# Instancia global de Escuelas
-escuelas_instance = Escuelas()
+# Crear tablas al iniciar
+crear_tablas()
+
+# ── Dependencia para obtener sesión de BD ────────────────────────────────────
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # CORS
 app.add_middleware(
@@ -38,12 +48,17 @@ async def serve_index():
 
 
 # ── Clases ──────────────────────────────────────────────────────────────────
-
 @app.post("/clases")
-def crear_clase(clase_data: ClaseData):
+def crear_clase(clase_data: ClaseData, db: Session = Depends(get_db)):
     """Crea una nueva clase y retorna el ID asignado."""
     try:
-        nueva_clase = Clase(
+        # Verificar que la escuela existe
+        escuela = db.query(EscuelaDB).filter(EscuelaDB.nombre == clase_data.escuela).first()
+        if not escuela:
+            raise HTTPException(status_code=404, detail=f"La escuela '{clase_data.escuela}' no existe")
+        
+        # Crear nueva clase
+        nueva_clase = ClaseDB(
             fecha=clase_data.fecha,
             depto=clase_data.depto,
             escuela=clase_data.escuela,
@@ -51,148 +66,228 @@ def crear_clase(clase_data: ClaseData):
             letra=clase_data.letra,
             nombreMaestra=clase_data.nombreMaestra,
         )
-        clase_id = Clase.registrar(nueva_clase)
+        
+        db.add(nueva_clase)
+        db.commit()
+        db.refresh(nueva_clase)
+        
         return {
             "mensaje": "¡Clase creada exitosamente!",
-            "id": clase_id,
+            "id": nueva_clase.id,
             "grado": f"{nueva_clase.grado}° {nueva_clase.letra}",
         }
+    except HTTPException:
+        raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/clases")
-def get_clases():
+def get_clases(db: Session = Depends(get_db)):
     """Retorna todas las clases como lista."""
-    return {"clases": Clase.darClases()}
+    clases = db.query(ClaseDB).all()
+    return {"clases": [c.to_dict() for c in clases]}
 
 
 @app.get("/clases/por-mes")
-def get_clases_por_mes():
-    """Retorna las clases agrupadas por mes, ordenadas cronológicamente."""
-    return {"meses": Clase.darClasesPorMes()}
+def get_clases_por_mes(db: Session = Depends(get_db)):
+    """Retorna las clases agrupadas por mes."""
+    clases = db.query(ClaseDB).all()
+    meses = defaultdict(list)
+    
+    MESES = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+    
+    for clase in clases:
+        try:
+            from datetime import datetime as dt
+            fecha_dt = dt.strptime(clase.fecha, "%Y-%m-%d")
+            mes_nombre = f"{MESES[fecha_dt.month - 1]} {fecha_dt.year}"
+            meses[mes_nombre].append(clase.to_dict())
+        except Exception:
+            meses["Sin clasificar"].append(clase.to_dict())
+    
+    # Ordenar cronológicamente: generar todas las keys "Mes YYYY" y ordenarlas por (año, mes)
+    def sort_key(k):
+        try:
+            partes = k.split()
+            return (int(partes[1]), MESES.index(partes[0]))
+        except Exception:
+            return (9999, 99)
+
+    meses_ordenados = dict(sorted(meses.items(), key=lambda kv: sort_key(kv[0])))
+    
+    return {"meses": meses_ordenados}
 
 
 @app.get("/clases/{clase_id}")
-def get_clase(clase_id: int):
+def get_clase(clase_id: int, db: Session = Depends(get_db)):
     """Retorna una clase por su ID."""
-    clase = Clase.buscarPorId(clase_id)
+    clase = db.query(ClaseDB).filter(ClaseDB.id == clase_id).first()
     if clase is None:
         raise HTTPException(status_code=404, detail=f"Clase con id {clase_id} no encontrada")
-    anotacion_dict = None
-    if clase.anotacion:
-        anotacion_dict = {
-            "dictada": clase.anotacion.dictada,
-            "registroDeClase": clase.anotacion.RegistroDeClase,
-            "correspondePago": clase.anotacion.correspondePago,
-            "observaciones": clase.anotacion.observaciones,
-        }
-    return {
-        "id": clase_id,
-        "fecha": clase.fecha,
-        "depto": clase.depto,
-        "escuela": clase.escuela,
-        "grado": clase.grado,
-        "letra": clase.letra,
-        "nombreMaestra": clase.nombreMaestra,
-        "anotacion": anotacion_dict,
-    }
+    
+    return clase.to_dict()
+
+
+@app.delete("/clases/{clase_id}")
+def eliminar_clase(clase_id: int, db: Session = Depends(get_db)):
+    """Elimina una clase por su ID."""
+    clase = db.query(ClaseDB).filter(ClaseDB.id == clase_id).first()
+    if clase is None:
+        raise HTTPException(status_code=404, detail=f"Clase con id {clase_id} no encontrada")
+    
+    db.delete(clase)
+    db.commit()
+    return {"mensaje": f"Clase {clase_id} eliminada correctamente"}
 
 
 # ── Anotaciones ─────────────────────────────────────────────────────────────
 
 @app.post("/clases/{clase_id}/anotacion")
-def agregar_anotacion(clase_id: int, datos: AnotacionData):
-    """Crea y asocia una nueva Anotación a la clase indicada."""
-    clase = Clase.buscarPorId(clase_id)
+def agregar_anotacion(clase_id: int, datos: AnotacionData, db: Session = Depends(get_db)):
+    """Crea y asocia una nueva anotación a la clase indicada."""
+    clase = db.query(ClaseDB).filter(ClaseDB.id == clase_id).first()
     if clase is None:
         raise HTTPException(status_code=404, detail=f"Clase con id {clase_id} no encontrada")
-
-    nueva_anotacion = Anotacion(
-        dictada=datos.dictada,
-        RegistroDeClase=datos.registroDeClase,
-        correspondePago=datos.correspondePago,
-    )
-    if datos.observaciones:
-        nueva_anotacion.agregar_observaciones(datos.observaciones)
-
-    clase.modificarAnotacion(nueva_anotacion)
-    return {
-        "mensaje": "Anotación agregada correctamente",
-        "clase_id": clase_id,
-        "anotacion": {
-            "dictada": nueva_anotacion.dictada,
-            "registroDeClase": nueva_anotacion.RegistroDeClase,
-            "correspondePago": nueva_anotacion.correspondePago,
-            "observaciones": nueva_anotacion.observaciones,
-        },
-    }
+    
+    try:
+        anotacion = db.query(AnotacionDB).filter(AnotacionDB.id == clase.anotacion).first()
+        # Actualizar campos de anotación
+        if anotacion:
+            anotacion.dictada = datos.dictada
+            anotacion.registroClase = datos.registroDeClase
+            anotacion.correspondePago = datos.correspondePago
+            anotacion.Observaciones = datos.observaciones
+            db.commit()
+            db.refresh(anotacion)
+        else:
+            nueva_anotacion = AnotacionDB(
+                dictada=datos.dictada,
+                registroClase=datos.registroDeClase,
+                correspondePago=datos.correspondePago,
+                observaciones=datos.observaciones
+            )
+            db.add(nueva_anotacion)
+            db.commit()
+            db.refresh(nueva_anotacion)
+            
+            clase.anotacion = nueva_anotacion.id
+        db.commit()
+        db.refresh(clase)
+        
+        return {
+            "mensaje": "Anotación agregada correctamente",
+            "clase_id": clase_id,
+            "anotacion": clase.to_dict()["anotacion"],
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.put("/clases/{clase_id}/anotacion")
-def actualizar_anotacion(clase_id: int, datos: AnotacionData):
-    """Reemplaza la anotación de una clase existente."""
-    clase = Clase.buscarPorId(clase_id)
+def actualizar_anotacion(clase_id: int, datos: AnotacionData, db: Session = Depends(get_db)):
+    """Actualiza la anotación de una clase existente."""
+    clase = db.query(ClaseDB).filter(ClaseDB.id == clase_id).first()
     if clase is None:
         raise HTTPException(status_code=404, detail=f"Clase con id {clase_id} no encontrada")
 
-    anotacion = Anotacion(
-        dictada=datos.dictada,
-        RegistroDeClase=datos.registroDeClase,
-        correspondePago=datos.correspondePago,
-    )
-    if datos.observaciones:
-        anotacion.agregar_observaciones(datos.observaciones)
+    anotacion = db.query(AnotacionDB).filter(AnotacionDB.id == clase.anotacion).first()
+    if anotacion is None:
+        raise HTTPException(status_code=404, detail=f"La clase {clase_id} no tiene anotación aún. Usá POST para crear una.")
 
-    clase.modificarAnotacion(anotacion)
-    return {
-        "mensaje": "Anotación actualizada correctamente",
-        "clase_id": clase_id,
-    }
+    try:
+        anotacion.dictada = datos.dictada
+        anotacion.registroClase = datos.registroDeClase
+        anotacion.correspondePago = datos.correspondePago
+        anotacion.observaciones = datos.observaciones
+
+        db.commit()
+        db.refresh(anotacion)
+
+        return {
+            "mensaje": "Anotación actualizada correctamente",
+            "clase_id": clase_id,
+            "anotacion": anotacion.to_dict(),
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Escuelas ─────────────────────────────────────────────────────────────────
+# ── Escuelas ────────────────────────────────────────────────────────────────
 
 @app.get("/escuelas")
-def get_escuelas():
-    return {"escuelas": escuelas_instance.darEscuelas()}
+def get_escuelas(db: Session = Depends(get_db)):
+    """Retorna todas las escuelas."""
+    escuelas = db.query(EscuelaDB).all()
+    return {"escuelas": [e.nombre for e in escuelas]}
 
 
 @app.post("/escuelas")
-def agregar_escuela(escuela_data: EscuelaData):
+def agregar_escuela(escuela_data: EscuelaData, db: Session = Depends(get_db)):
+    """Agrega una nueva escuela."""
     try:
         nombre = escuela_data.nombre.strip()
         if not nombre:
             raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
-        if nombre in escuelas_instance.darEscuelas():
+        
+        # Verificar si ya existe
+        existente = db.query(EscuelaDB).filter(EscuelaDB.nombre == nombre).first()
+        if existente:
             raise HTTPException(status_code=409, detail=f"La escuela '{nombre}' ya existe")
-        escuelas_instance.agregar_escuela(nombre)
+        
+        nueva_escuela = EscuelaDB(nombre=nombre)
+        db.add(nueva_escuela)
+        db.commit()
+        
         return {"mensaje": f"Escuela '{nombre}' agregada correctamente"}
     except HTTPException:
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/escuelas")
-def eliminar_escuela(escuela_data: EscuelaData):
+def eliminar_escuela(escuela_data: EscuelaData, db: Session = Depends(get_db)):
+    """Elimina una escuela solo si no tiene clases asociadas."""
     try:
         nombre = escuela_data.nombre.strip()
-        if nombre not in escuelas_instance.darEscuelas():
+        escuela = db.query(EscuelaDB).filter(EscuelaDB.nombre == nombre).first()
+
+        if not escuela:
             raise HTTPException(status_code=404, detail=f"La escuela '{nombre}' no existe")
-        escuelas_instance.eliminar_escuela(nombre)
+
+        clases_asociadas = db.query(ClaseDB).filter(ClaseDB.escuela == nombre).count()
+        if clases_asociadas > 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"No se puede eliminar '{nombre}': tiene {clases_asociadas} clase(s) asociada(s)"
+            )
+
+        db.delete(escuela)
+        db.commit()
+
         return {"mensaje": f"Escuela '{nombre}' eliminada correctamente"}
     except HTTPException:
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Grupos ───────────────────────────────────────────────────────────────────
 
 @app.get("/grupos")
-def get_grupos():
-    return {"grupos": Grupos().darGrupos()}
+def get_grupos(db: Session = Depends(get_db)):
+    """Retorna todos los grupos."""
+    grupos = db.query(GrupoDB).all()
+    return {"grupos": [g.to_dict() for g in grupos]}
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
