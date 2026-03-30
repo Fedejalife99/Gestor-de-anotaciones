@@ -2,22 +2,32 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Foreign
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
+from dotenv import load_dotenv
 import os
+
+load_dotenv()  # Carga .env si existe (entorno local)
 
 # ────────────────────────────────────────────────────────────────────────────
 # Configuración de la base de datos
 # ────────────────────────────────────────────────────────────────────────────
 
-# Ruta de la base de datos SQLite
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, '..', 'anotaciones.db')}"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Crear motor de la base de datos
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},  # Requerido para SQLite
-    echo=False  # Cambiar a True para ver las queries SQL
-)
+if DATABASE_URL:
+    # PostgreSQL en producción (Render)
+    # Render provee URLs con prefijo "postgres://" pero SQLAlchemy necesita "postgresql://"
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    engine = create_engine(DATABASE_URL, echo=False)
+else:
+    # SQLite en desarrollo local
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    SQLITE_URL = f"sqlite:///{os.path.join(BASE_DIR, '..', 'anotaciones.db')}"
+    engine = create_engine(
+        SQLITE_URL,
+        connect_args={"check_same_thread": False},
+        echo=False
+    )
 
 # Crear session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
